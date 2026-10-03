@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐾 咕嚕咕嚕！身材小偵探 🐾 - Q版 BMI 健康計算器</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Fredoka & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        chibi: {
+                            yellow: '#FFEC99',
+                            yellowDark: '#FAB005',
+                            mint: '#A9E34B',
+                            mintDark: '#74B816',
+                            teal: '#63E6BE',
+                            tealDark: '#0CA678',
+                            sky: '#74C0FC',
+                            skyDark: '#1C7ED6',
+                            orange: '#FFD8A8',
+                            orangeDark: '#F76707',
+                            cream: '#FFF9DB',
+                            purple: '#D0BFFF',
+                            purpleDark: '#7048E8'
+                        }
+                    },
+                    fontFamily: {
+                        fredoka: ['Fredoka', 'cursive', 'sans-serif'],
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #F6F9F8;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        #petalCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .font-rounded {
+            font-family: 'Fredoka', 'Noto Sans TC', cursive;
+        }
+
+        .chibi-card-clean {
+            background: rgba(255, 255, 255, 0.95);
+            border: 3px solid #E2E8F0;
+            border-radius: 2rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+            transition: all 0.25s ease;
+        }
+
+        .chibi-card-clean:hover {
+            box-shadow: 0 16px 30px -5px rgba(0, 0, 0, 0.07);
+            border-color: #CBD5E1;
+        }
+
+        .btn-bounce {
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+        }
+        .btn-bounce:hover {
+            transform: scale(1.03) translateY(-1px);
+        }
+        .btn-bounce:active {
+            transform: scale(0.97);
+        }
+
+        .gender-radio input:checked + label {
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            transform: scale(1.02);
+        }
+
+        .gender-radio-m input:checked + label {
+            background-color: #74C0FC;
+            color: white;
+            border-color: #1C7ED6;
+        }
+
+        .gender-radio-f input:checked + label {
+            background-color: #FFD8A8;
+            color: #D9480F;
+            border-color: #F76707;
+        }
+
+        .speech-bubble {
+            position: relative;
+            background: #FFF9DB;
+            border: 3px solid #FAB005;
+            border-radius: 1.5rem;
+        }
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            left: 28px;
+            bottom: -14px;
+            border-width: 14px 12px 0;
+            border-style: solid;
+            border-color: #FFF9DB transparent;
+            display: block;
+            width: 0;
+        }
+        .speech-bubble::before {
+            content: '';
+            position: absolute;
+            left: 26px;
+            bottom: -18px;
+            border-width: 16px 14px 0;
+            border-style: solid;
+            border-color: #FAB005 transparent;
+            display: block;
+            width: 0;
+        }
+
+        /* Gauge Needle transition */
+        .needle-transition {
+            transition: left 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Scale Dial Pointer Animation */
+        .scale-pointer-anim {
+            transform-origin: 50% 90%;
+            transition: transform 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes bearHop {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .bear-stepping {
+            animation: bearHop 0.4s ease infinite;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F3F5;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #A9E34B;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="text-slate-700 py-8 px-4 sm:px-6 lg:px-8">
+
+    <canvas id="petalCanvas"></canvas>
+
+    <div class="max-w-5xl mx-auto space-y-8 relative z-10">
+        
+        <header class="text-center space-y-3">
+            <div class="inline-flex items-center gap-2 bg-chibi-cream px-5 py-2 rounded-full border-2 border-chibi-yellowDark shadow-sm">
+                <span class="text-xs font-black text-amber-900 tracking-wider uppercase">
+                    ✨ 衛福部國民健康署最新標準判定 ✨
+                </span>
+            </div>
+            
+            <h1 class="text-3xl sm:text-5xl font-black text-slate-800 tracking-tight font-rounded flex items-center justify-center gap-3">
+                <span class="inline-block animate-bounce">🐾</span>
+                <span class="bg-gradient-to-r from-teal-600 via-sky-600 to-amber-600 bg-clip-text text-transparent">
+                    咕嚕咕嚕！身材小偵探
+                </span>
+                <span class="inline-block animate-bounce" style="animation-delay: 0.2s">🔍</span>
+            </h1>
+            
+            <p class="text-xs sm:text-sm font-bold text-slate-500 max-w-md mx-auto bg-white/90 backdrop-blur-sm py-2 px-6 rounded-full border border-slate-200 shadow-sm">
+                站上電子磅秤！探長小熊立馬為你解鎖健康密碼！🌟
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+            <div class="lg:col-span-5 chibi-card-clean p-6 sm:p-8 space-y-6 relative">
+                
+                <div class="flex items-center gap-3 border-b-2 border-dashed border-slate-200 pb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-chibi-teal/30 text-teal-700 flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-clipboard-user"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-black text-slate-800 font-rounded">填寫個人小檔案</h2>
+                        <p class="text-xs font-bold text-slate-400">請輸入真實測量數據喔！</p>
+                    </div>
+                </div>
+
+                <form id="bmiForm" onsubmit="calculateBMI(event)" class="space-y-5">
+                    
+                    <!-- 性別選擇 -->
+                    <div class="space-y-2">
+                        <label class="block text-xs font-black text-slate-500 uppercase tracking-wider">
+                            選擇性別 🎈
+                        </label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="gender-radio gender-radio-m">
+                                <input type="radio" id="genderMale" name="gender" value="male" checked class="hidden">
+                                <label for="genderMale" class="flex flex-col items-center justify-center p-3 border-2 border-slate-200 rounded-2xl cursor-pointer hover:border-sky-300 transition-all text-slate-600 font-bold bg-slate-50">
+                                    <span class="text-3xl mb-1">👦</span>
+                                    <span class="text-xs">小男生</span>
+                                </label>
+                            </div>
+                            <div class="gender-radio gender-radio-f">
+                                <input type="radio" id="genderFemale" name="gender" value="female" class="hidden">
+                                <label for="genderFemale" class="flex flex-col items-center justify-center p-3 border-2 border-slate-200 rounded-2xl cursor-pointer hover:border-orange-300 transition-all text-slate-600 font-bold bg-slate-50">
+                                    <span class="text-3xl mb-1">👧</span>
+                                    <span class="text-xs">小女生</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 年齡 -->
+                    <div class="space-y-2">
+                        <label for="age" class="block text-xs font-black text-slate-500 uppercase tracking-wider">
+                            您的年齡 🎂
+                        </label>
+                        <div class="relative flex items-center">
+                            <input type="number" id="age" min="1" max="120" value="25" required
+                                class="w-full px-5 py-3 rounded-2xl border-2 border-slate-200 font-bold text-slate-700 focus:outline-none focus:border-chibi-teal focus:ring-4 focus:ring-teal-100 transition-all text-lg pr-12 bg-slate-50"
+                                placeholder="25" oninput="checkAgeWarning()">
+                            <span class="absolute right-4 text-slate-400 font-bold text-sm">歲</span>
+                        </div>
+                        
+                        <!-- 未成年提醒 -->
+                        <div id="ageWarning" class="hidden p-3 bg-amber-50 border-2 border-amber-300 rounded-2xl text-xs font-bold text-amber-800 space-y-1">
+                            <div class="flex items-center gap-1.5 text-amber-700">
+                                <i class="fa-solid fa-triangle-exclamation text-sm"></i>
+                                <span>小偵探提醒：</span>
+                            </div>
+                            <p>本標準適用於 <strong>18 歲以上</strong> 成人。未滿 18 歲的青少年與兒童請參考衛福部「兒童及青少年生長曲線圖」喔！</p>
+                        </div>
+                    </div>
+
+                    <!-- 身高 -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <label for="height" class="block text-xs font-black text-slate-500 uppercase tracking-wider">
+                                身高 (cm) 📏
+                            </label>
+                            <div class="flex gap-1">
+                                <button type="button" onclick="adjustValue('height', -0.5)" class="px-2.5 py-1 bg-slate-100 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-200 btn-bounce">-0.5</button>
+                                <button type="button" onclick="adjustValue('height', 0.5)" class="px-2.5 py-1 bg-slate-100 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-200 btn-bounce">+0.5</button>
+                            </div>
+                        </div>
+                        <div class="relative flex items-center">
+                            <input type="number" id="height" step="0.1" min="50" max="250" placeholder="例如：165" value="165" required
+                                class="w-full px-5 py-3 rounded-2xl border-2 border-slate-200 font-bold text-slate-700 focus:outline-none focus:border-chibi-teal focus:ring-4 focus:ring-teal-100 transition-all text-lg pr-14 bg-slate-50">
+                            <span class="absolute right-4 text-slate-400 font-bold text-sm">cm</span>
+                        </div>
+                    </div>
+
+                    <!-- 體重 -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <label for="weight" class="block text-xs font-black text-slate-500 uppercase tracking-wider">
+                                體重 (kg) ⚖
+                            </label>
+                            <div class="flex gap-1">
+                                <button type="button" onclick="adjustValue('weight', -0.5)" class="px-2.5 py-1 bg-slate-100 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-200 btn-bounce">-0.5</button>
+                                <button type="button" onclick="adjustValue('weight', 0.5)" class="px-2.5 py-1 bg-slate-100 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-200 btn-bounce">+0.5</button>
+                            </div>
+                        </div>
+                        <div class="relative flex items-center">
+                            <input type="number" id="weight" step="0.1" min="10" max="300" placeholder="例如：58" value="58" required
+                                class="w-full px-5 py-3 rounded-2xl border-2 border-slate-200 font-bold text-slate-700 focus:outline-none focus:border-chibi-teal focus:ring-4 focus:ring-teal-100 transition-all text-lg pr-14 bg-slate-50">
+                            <span class="absolute right-4 text-slate-400 font-bold text-sm">kg</span>
+                        </div>
+                    </div>
+
+                    <!-- 操作按鈕 -->
+                    <div class="pt-2 flex gap-3">
+                        <button type="submit"
+                            class="flex-1 bg-gradient-to-r from-chibi-tealDark to-chibi-mintDark hover:from-teal-600 hover:to-lime-600 text-white font-black text-lg py-3.5 px-6 rounded-2xl shadow-lg shadow-teal-100 btn-bounce flex items-center justify-center gap-2 border border-teal-700">
+                            <span>踩上磅秤測量！</span>
+                            <i class="fa-solid fa-weight-scale"></i>
+                        </button>
+                        <button type="button" onclick="resetForm()"
+                            class="bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-3.5 px-4 rounded-2xl btn-bounce" title="重設">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
+
+                </form>
+
+            </div>
+
+            <div class="lg:col-span-7 space-y-6">
+                
+                <div id="resultCard" class="chibi-card-clean p-6 sm:p-8 space-y-6 relative overflow-hidden">
+                    
+                    <!-- 預設磅秤互動展演區塊 -->
+                    <div class="bg-gradient-to-b from-sky-50/50 to-teal-50/30 p-6 rounded-3xl border-2 border-slate-200 text-center space-y-4 relative">
+                        
+                        <!-- 探長小熊踩磅秤 -->
+                        <div class="relative inline-block">
+                            <div id="mascotBear" class="text-6xl sm:text-7xl transition-transform duration-300">
+                                🕵️‍♂️🐻
+                            </div>
+                        </div>
+
+                        <!-- 磅秤主體 Graphic Scale Widget -->
+                        <div class="max-w-xs mx-auto bg-white p-4 rounded-3xl border-4 border-slate-300 shadow-md space-y-3 relative">
+                            
+                            <!-- 磅秤半圓指針盤 -->
+                            <div class="relative h-24 w-44 mx-auto border-t-8 border-x-8 border-slate-200 rounded-t-full bg-slate-50 overflow-hidden flex items-end justify-center">
+                                <!-- 刻度線 -->
+                                <div class="absolute inset-0 flex justify-between px-3 pt-2 text-[9px] font-black text-slate-400">
+                                    <span>15</span>
+                                    <span>20</span>
+                                    <span>25</span>
+                                    <span>30</span>
+                                    <span>35+</span>
+                                </div>
+                                <!-- 半圓彩虹邊框 -->
+                                <div class="absolute top-6 inset-x-3 h-12 rounded-t-full border-t-4 border-dashed border-teal-400 opacity-60"></div>
+                                
+                                <!-- 擺動指針 Needle -->
+                                <div id="scalePointer" class="absolute bottom-1 w-1.5 h-16 bg-rose-500 rounded-full scale-pointer-anim shadow-md" style="transform: rotate(-60deg);">
+                                    <div class="w-3 h-3 bg-slate-800 rounded-full -ml-0.75 -mt-1 border border-white"></div>
+                                </div>
+                            </div>
+
+                            <!-- 電子螢幕 LCD Screen -->
+                            <div class="bg-slate-900 px-4 py-2 rounded-xl border-2 border-slate-700 shadow-inner flex items-center justify-between font-mono">
+                                <span class="text-[10px] text-teal-400 font-bold uppercase tracking-widest">BMI SCALE</span>
+                                <div id="scaleLcdDisplay" class="text-2xl font-black text-emerald-400 tracking-wider font-rounded">
+                                    00.0
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div id="emptyStateHint" class="text-xs font-bold text-slate-400">
+                            輸入資料並點擊「踩上磅秤測量」，小熊會為你指針跳躍測量喔！
+                        </div>
+
+                    </div>
+
+                    <!-- 詳細計算結果內容區塊 -->
+                    <div id="resultContent" class="hidden space-y-6">
+                        
+                        <!-- 對話框與體位標籤 -->
+                        <div class="space-y-4">
+                            <div class="speech-bubble p-4 sm:p-5 shadow-sm">
+                                <div id="mascotMessage" class="text-xs sm:text-sm font-bold text-amber-950 leading-relaxed">
+                                    報告！調查完畢，以下是為你量身打造的身材分析！
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-4 bg-slate-50 p-4 rounded-3xl border-2 border-slate-200">
+                                <div id="mascotEmoji" class="text-5xl sm:text-6xl p-2 bg-white rounded-2xl shadow-sm border border-slate-100">
+                                    🐻
+                                </div>
+                                <div class="flex-1 space-y-1">
+                                    <div class="flex items-center gap-2">
+                                        <span id="statusTag" class="px-3 py-0.5 rounded-full text-xs font-black text-white bg-slate-600">
+                                            衛福部判定
+                                        </span>
+                                        <span id="statusTitle" class="text-xl sm:text-2xl font-black text-slate-800 font-rounded">
+                                            健康體位
+                                        </span>
+                                    </div>
+                                    <p id="statusSubtitle" class="text-xs font-bold text-slate-400">
+                                        持續維持優秀身材！
+                                    </p>
+                                </div>
+                                <div class="text-right bg-white py-2 px-4 rounded-2xl border-2 border-slate-200 shadow-sm">
+                                    <div class="text-[10px] font-black text-slate-400 uppercase">BMI 數值</div>
+                                    <div id="bmiValue" class="text-3xl sm:text-4xl font-black font-rounded text-slate-800">0.0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 100% 精準對齊國健署區間彩虹條 -->
+                        <div class="space-y-2 bg-slate-50 p-4 rounded-3xl border-2 border-slate-200">
+                            <div class="flex justify-between text-xs font-bold text-slate-500 px-1">
+                                <span>國健署 BMI 標準量規 📍</span>
+                                <span id="currentBmiRangeText" class="text-teal-600 font-black">18.5 ~ 23.9 (健康)</span>
+                            </div>
+                            
+                            <!-- 比例精確計算: 總量程 BMI 15 ~ 40 (跨度 25) -->
+                            <!-- <18.5: (3.5/25)=14% | 18.5-24: (5.5/25)=22% | 24-27: (3/25)=12% | 27-30: (3/25)=12% | 30-35: (5/25)=20% | ≥35: (5/25)=20% -->
+                            <div class="relative h-6 w-full rounded-full overflow-hidden flex shadow-inner border border-white">
+                                <div class="w-[14%] bg-chibi-sky" title="體重過輕 (<18.5)"></div>
+                                <div class="w-[22%] bg-chibi-mint" title="健康體位 (18.5-23.9)"></div>
+                                <div class="w-[12%] bg-chibi-yellow" title="體重過重 (24.0-26.9)"></div>
+                                <div class="w-[12%] bg-chibi-orange" title="輕度肥胖 (27.0-29.9)"></div>
+                                <div class="w-[20%] bg-rose-400" title="中度肥胖 (30.0-34.9)"></div>
+                                <div class="w-[20%] bg-chibi-purple" title="重度肥胖 (≥35.0)"></div>
+
+                                <!-- Pointer Needle 精準定位點 -->
+                                <div id="bmiNeedle" class="absolute top-0 bottom-0 w-3.5 bg-slate-800 rounded-full shadow-lg border-2 border-white needle-transition" style="left: 0%;"></div>
+                            </div>
+
+                            <div class="flex justify-between text-[10px] font-bold text-slate-400 px-1 pt-0.5">
+                                <span>15</span>
+                                <span>18.5</span>
+                                <span>24</span>
+                                <span>27</span>
+                                <span>30</span>
+                                <span>35</span>
+                                <span>40+</span>
+                            </div>
+                        </div>
+
+                        <!-- 理想體重與增減目標 -->
+                        <div class="p-5 rounded-3xl bg-chibi-cream border-2 border-chibi-yellowDark space-y-3">
+                            <div class="flex items-center gap-2 text-amber-900 font-black text-sm">
+                                <i class="fa-solid fa-bullseye text-base text-amber-600"></i>
+                                <span>理想體重與調整建議 🎯</span>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                <div class="bg-white p-3 rounded-2xl border-2 border-amber-200">
+                                    <div class="text-xs font-bold text-slate-400">理想健康體重範圍</div>
+                                    <div id="idealWeightText" class="text-base font-black text-slate-700 font-rounded">-- ~ -- kg</div>
+                                </div>
+                                <div class="bg-white p-3 rounded-2xl border-2 border-amber-200">
+                                    <div class="text-xs font-bold text-slate-400">體重目標增減</div>
+                                    <div id="targetWeightDiffText" class="text-base font-black text-slate-700 font-rounded">--</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 專屬 3 大健康處方箋 -->
+                        <div class="space-y-3">
+                            <h4 class="font-black text-slate-700 text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-notes-medical text-teal-600"></i>
+                                <span>小偵探健康處方箋</span>
+                            </h4>
+
+                            <div class="grid grid-cols-1 gap-3">
+                                <!-- 飲食建議 -->
+                                <div class="p-4 bg-emerald-50 rounded-2xl border-2 border-emerald-200 flex items-start gap-3">
+                                    <span class="text-2xl p-2 bg-white rounded-xl shadow-sm">🥗</span>
+                                    <div class="space-y-0.5">
+                                        <div class="text-xs font-black text-emerald-800">飲食建議</div>
+                                        <div id="dietAdvice" class="text-xs font-bold text-emerald-950 leading-relaxed">-</div>
+                                    </div>
+                                </div>
+
+                                <!-- 運動建議 -->
+                                <div class="p-4 bg-sky-50 rounded-2xl border-2 border-sky-200 flex items-start gap-3">
+                                    <span class="text-2xl p-2 bg-white rounded-xl shadow-sm">🏃‍♂️</span>
+                                    <div class="space-y-0.5">
+                                        <div class="text-xs font-black text-sky-800">運動建議</div>
+                                        <div id="exerciseAdvice" class="text-xs font-bold text-sky-950 leading-relaxed">-</div>
+                                    </div>
+                                </div>
+
+                                <!-- 生活建議 -->
+                                <div class="p-4 bg-purple-50 rounded-2xl border-2 border-purple-200 flex items-start gap-3">
+                                    <span class="text-2xl p-2 bg-white rounded-xl shadow-sm">😴</span>
+                                    <div class="space-y-0.5">
+                                        <div class="text-xs font-black text-purple-800">生活習慣建議</div>
+                                        <div id="lifestyleAdvice" class="text-xs font-bold text-purple-950 leading-relaxed">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- 歷史紀錄 Card -->
+            <div class="lg:col-span-5 chibi-card-clean p-6 space-y-4">
+                <div class="flex items-center justify-between border-b-2 border-slate-100 pb-3">
+                    <h3 class="font-black text-slate-800 font-rounded flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-teal-500"></i>
+                        <span>調查歷史紀錄</span>
+                    </h3>
+                    <button onclick="clearHistory()" class="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors">
+                        <i class="fa-solid fa-trash-can"></i> 清除紀錄
+                    </button>
+                </div>
+
+                <div id="historyList" class="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                    <p class="text-xs text-center text-slate-400 py-8 font-bold">目前還沒有紀錄喔！測量後自動儲存 📝</p>
+                </div>
+            </div>
+
+            <!-- 國健署標準參考表 Card -->
+            <div class="lg:col-span-7 chibi-card-clean p-6 space-y-4">
+                <h3 class="font-black text-slate-800 font-rounded flex items-center gap-2 border-b-2 border-slate-100 pb-3">
+                    <i class="fa-solid fa-list-check text-amber-500"></i>
+                    <span>衛福部國健署 BMI 標準對照表</span>
+                </h3>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 font-black">
+                                <th class="p-2.5 rounded-l-xl">體位分類</th>
+                                <th class="p-2.5">BMI 範圍</th>
+                                <th class="p-2.5 rounded-r-xl">健康提示</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 font-bold text-slate-600">
+                            <tr id="row-underweight" class="hover:bg-sky-50 transition-colors">
+                                <td class="p-2.5 text-sky-600 font-black">體重過輕 🍦</td>
+                                <td class="p-2.5">&lt; 18.5</td>
+                                <td class="p-2.5">免疫力可能較弱，需補充電熱與蛋白質</td>
+                            </tr>
+                            <tr id="row-normal" class="hover:bg-emerald-50 transition-colors">
+                                <td class="p-2.5 text-emerald-600 font-black">健康體位 🌟</td>
+                                <td class="p-2.5">18.5 &le; BMI &lt; 24.0</td>
+                                <td class="p-2.5">極佳狀態！請繼續維持優良運動與飲食習慣</td>
+                            </tr>
+                            <tr id="row-overweight" class="hover:bg-amber-50 transition-colors">
+                                <td class="p-2.5 text-amber-600 font-black">體重過重 🍩</td>
+                                <td class="p-2.5">24.0 &le; BMI &lt; 27.0</td>
+                                <td class="p-2.5">稍微偏重囉，注意控制甜食與手搖飲料</td>
+                            </tr>
+                            <tr id="row-obese1" class="hover:bg-orange-50 transition-colors">
+                                <td class="p-2.5 text-orange-600 font-black">輕度肥胖 🍔</td>
+                                <td class="p-2.5">27.0 &le; BMI &lt; 30.0</td>
+                                <td class="p-2.5">建議養成每週規律有氧運動習慣</td>
+                            </tr>
+                            <tr id="row-obese2" class="hover:bg-rose-50 transition-colors">
+                                <td class="p-2.5 text-rose-600 font-black">中度肥胖 🍟</td>
+                                <td class="p-2.5">30.0 &le; BMI &lt; 35.0</td>
+                                <td class="p-2.5">心血管負擔增加，建議規律漸進減重</td>
+                            </tr>
+                            <tr id="row-obese3" class="hover:bg-purple-50 transition-colors">
+                                <td class="p-2.5 text-purple-600 font-black">重度肥胖 🍕</td>
+                                <td class="p-2.5">BMI &ge; 35.0</td>
+                                <td class="p-2.5">建議諮詢專業門診與營養師尋求指引</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <footer class="text-center text-xs font-bold text-slate-400 space-y-1 py-4">
+            <p>BMI 計算公式 = 體重 (kg) / 身高 (m)²</p>
+            <p>依據台灣衛生福利部國民健康署標準編製 🐾 ✨</p>
+        </footer>
+
+    </div>
+
+    <script>
+        // Floating Petals Canvas
+        const canvas = document.getElementById('petalCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        const petalColors = [
+            'rgba(169, 227, 75, 0.45)',  // Mint
+            'rgba(255, 236, 153, 0.55)', // Yellow
+            'rgba(116, 192, 252, 0.45)', // Sky
+            'rgba(99, 230, 190, 0.4)'    // Teal
+        ];
+
+        class Petal {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * -height;
+                this.size = Math.random() * 8 + 6;
+                this.speedY = Math.random() * 1.2 + 0.6;
+                this.speedX = Math.random() * 0.8 - 0.4;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotSpeed = (Math.random() - 0.5) * 0.02;
+                this.color = petalColors[Math.floor(Math.random() * petalColors.length)];
+            }
+
+            update() {
+                this.y += this.speedY;
+                this.x += Math.sin(this.y * 0.01) + this.speedX;
+                this.rotation += this.rotSpeed;
+
+                if (this.y > height + 20) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.fillStyle = this.color;
+                
+                ctx.beginPath();
+                ctx.moveTo(0, -this.size);
+                ctx.bezierCurveTo(this.size, -this.size / 2, this.size, this.size / 2, 0, this.size);
+                ctx.bezierCurveTo(-this.size, this.size / 2, -this.size, -this.size / 2, 0, -this.size);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        const petals = [];
+        const PETAL_COUNT = 30;
+        for (let i = 0; i < PETAL_COUNT; i++) {
+            petals.push(new Petal());
+        }
+
+        function animatePetals() {
+            ctx.clearRect(0, 0, width, height);
+            petals.forEach(petal => {
+                petal.update();
+                petal.draw();
+            });
+            requestAnimationFrame(animatePetals);
+        }
+
+        window.onload = function() {
+            animatePetals();
+            loadHistory();
+        };
+    </script>
+
+    <script>
+        function adjustValue(fieldId, amount) {
+            const input = document.getElementById(fieldId);
+            let val = parseFloat(input.value) || 0;
+            val = Math.max(0, val + amount);
+            input.value = val.toFixed(1);
+        }
+
+        function checkAgeWarning() {
+            const ageInput = document.getElementById('age');
+            const ageWarning = document.getElementById('ageWarning');
+            const age = parseInt(ageInput.value, 10);
+
+            if (!isNaN(age) && age < 18) {
+                ageWarning.classList.remove('hidden');
+            } else {
+                ageWarning.classList.add('hidden');
+            }
+        }
+
+        // 計算與磅秤動畫主邏輯
+        function calculateBMI(event) {
+            event.preventDefault();
+
+            const heightCm = parseFloat(document.getElementById('height').value);
+            const weightKg = parseFloat(document.getElementById('weight').value);
+
+            if (!heightCm || heightCm <= 0 || !weightKg || weightKg <= 0) {
+                showToast('請正確輸入身高與體重數值喔！');
+                return;
+            }
+
+            const heightM = heightCm / 100;
+            const bmi = weightKg / (heightM * heightM);
+            const bmiFormatted = bmi.toFixed(1);
+
+            // 觸發磅秤與小熊踏步動畫
+            playScaleAnimation(bmi, () => {
+                // 動畫結束後計算理想體重與增減目標
+                const minIdealWeight = (18.5 * heightM * heightM);
+                const maxIdealWeight = (23.9 * heightM * heightM);
+
+                let weightDiffText = '';
+                if (weightKg < minIdealWeight) {
+                    const addKg = (minIdealWeight - weightKg).toFixed(1);
+                    weightDiffText = `建議增加 <span class="text-sky-600 font-black">${addKg} kg</span> 回歸健康標準 🥐`;
+                } else if (weightKg > maxIdealWeight) {
+                    const reduceKg = (weightKg - maxIdealWeight).toFixed(1);
+                    weightDiffText = `建議減少 <span class="text-rose-600 font-black">${reduceKg} kg</span> 回歸健康標準 🥗`;
+                } else {
+                    weightDiffText = `<span class="text-emerald-600 font-black">太棒了！無須增減，繼續維持 ✨</span>`;
+                }
+
+                const resultData = getBMICategory(bmi);
+
+                renderResults(bmiFormatted, minIdealWeight.toFixed(1), maxIdealWeight.toFixed(1), weightDiffText, resultData, bmi);
+                highlightTableRow(resultData.id);
+
+                saveHistory({
+                    date: new Date().toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                    bmi: bmiFormatted,
+                    category: resultData.category,
+                    badgeBg: resultData.badgeBg,
+                    height: heightCm,
+                    weight: weightKg
+                });
+            });
+        }
+
+        // 磅秤模擬動畫 (Scale Animation)
+        function playScaleAnimation(targetBmi, onComplete) {
+            const bear = document.getElementById('mascotBear');
+            const pointer = document.getElementById('scalePointer');
+            const lcd = document.getElementById('scaleLcdDisplay');
+
+            bear.classList.add('bear-stepping');
+            
+            // 指針晃動角度映射 (-60deg ~ +60deg 對應 BMI 15 ~ 40)
+            let rawTargetAngle = ((targetBmi - 15) / (40 - 15)) * 120 - 60;
+            if (rawTargetAngle < -65) rawTargetAngle = -65;
+            if (rawTargetAngle > 65) rawTargetAngle = 65;
+
+            // 第一階段：跳耀擺動
+            pointer.style.transform = `rotate(${Math.min(60, rawTargetAngle + 25)}deg)`;
+
+            // 數值滾動
+            let startVal = 0;
+            const duration = 1000;
+            const startTime = performance.now();
+
+            function updateLcd(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const currentVal = (progress * targetBmi).toFixed(1);
+                lcd.innerText = currentVal.padStart(4, '0');
+
+                if (progress < 1) {
+                    requestAnimationFrame(updateLcd);
+                } else {
+                    lcd.innerText = targetBmi.toFixed(1);
+                    pointer.style.transform = `rotate(${rawTargetAngle}deg)`;
+                    bear.classList.remove('bear-stepping');
+                    if (onComplete) onComplete();
+                }
+            }
+
+            requestAnimationFrame(updateLcd);
+        }
+
+        // 衛福部國健署資料庫
+        function getBMICategory(bmi) {
+            if (bmi < 18.5) {
+                return {
+                    id: 'row-underweight',
+                    category: '體重過輕',
+                    emoji: '🧊🐻',
+                    badgeBg: 'bg-sky-500',
+                    rangeText: 'BMI < 18.5 (過輕)',
+                    speech: '偵探報告：體重稍微偏輕囉！是不是最近太忙沒好好吃飯呢？補充好營養最重要！',
+                    dietAdvice: '適度增加優質蛋白質與熱量（如鮮奶、豆漿、雞肉、蛋類），可以少量多餐。',
+                    exerciseAdvice: '建議進行適度肌力訓練（如深蹲、彈力帶），增加肌肉量與基礎代謝率。',
+                    lifestyleAdvice: '保持規律作息與充足睡眠，促進腸胃消化吸收，保持好心情！'
+                };
+            } else if (bmi >= 18.5 && bmi < 24.0) {
+                return {
+                    id: 'row-normal',
+                    category: '健康體位',
+                    emoji: '🌟🐻',
+                    badgeBg: 'bg-emerald-500',
+                    rangeText: 'BMI 18.5 ~ 23.9 (健康)',
+                    speech: '偵探報告：太完美了！你的身材處於極佳的健康黃金區間，請繼續維持喔！',
+                    dietAdvice: '維持均衡飲食，多攝取原型食物、高纖蔬菜與全穀雜糧，少喝手搖飲料。',
+                    exerciseAdvice: '每週維持 150 分鐘中等強度運動（如快走、慢跑、游泳、騎單車）。',
+                    lifestyleAdvice: '維持天天量體重、每日補充足量水分（2000c.c.）的好習慣。'
+                };
+            } else if (bmi >= 24.0 && bmi < 27.0) {
+                return {
+                    id: 'row-overweight',
+                    category: '體重過重',
+                    emoji: '🍩🐻',
+                    badgeBg: 'bg-amber-500',
+                    rangeText: 'BMI 24.0 ~ 26.9 (過重)',
+                    speech: '偵探報告：警告！體重稍微踩到黃燈邊緣囉，稍微調整飲食就能變回完美體態！',
+                    dietAdvice: '少吃油炸物與高糖甜點，用餐時建議先吃蔬菜與蛋白質，最後吃澱粉。',
+                    exerciseAdvice: '增加日常活動量，改走樓梯代替搭電梯，飯後散步 20 分鐘。',
+                    lifestyleAdvice: '細慢嚥，避免暴飲暴食，晚上八點後盡量不吃宵夜。'
+                };
+            } else if (bmi >= 27.0 && bmi < 30.0) {
+                return {
+                    id: 'row-obese1',
+                    category: '輕度肥胖',
+                    emoji: '🍔🐻',
+                    badgeBg: 'bg-orange-500',
+                    rangeText: 'BMI 27.0 ~ 29.9 (輕度肥胖)',
+                    speech: '偵探報告：偵測到體脂肪有點積聚囉，別擔心，跟著處方箋開始動起來吧！',
+                    dietAdvice: '控管每日總熱量，多選擇低卡高纖蔬菜與白肉，減少精緻澱粉與零食。',
+                    exerciseAdvice: '每週規劃 3-5 天有氧運動（如有氧舞蹈、快走），有效促進脂肪燃燒。',
+                    lifestyleAdvice: '紀錄每日飲食，設定合理減重目標（每週約 0.5 公斤），持之以恆。'
+                };
+            } else if (bmi >= 30.0 && bmi < 35.0) {
+                return {
+                    id: 'row-obese2',
+                    category: '中度肥胖',
+                    emoji: '🍟🐻',
+                    badgeBg: 'bg-rose-500',
+                    rangeText: 'BMI 30.0 ~ 34.9 (中度肥胖)',
+                    speech: '偵探報告：心血管負擔開始增加了，建議從今天開始為健康做一點小改變！',
+                    dietAdvice: '戒除含糖飲料與高油醬料，可諮詢專業營養師設計個人化減重菜單。',
+                    exerciseAdvice: '選擇對膝蓋關節負擔較小的運動（如水中快走、固定式健身車）。',
+                    lifestyleAdvice: '定期測量血壓與血糖，將減重目標拆解成小步驟，尋求親友鼓勵。'
+                };
+            } else {
+                return {
+                    id: 'row-obese3',
+                    category: '重度肥胖',
+                    emoji: '🆘🐻',
+                    badgeBg: 'bg-purple-600',
+                    rangeText: 'BMI ≥ 35.0 (重度肥胖)',
+                    speech: '偵探報告：身體正在發出求救訊號！建議尋求專業醫療團隊協助，會更有效果喔！',
+                    dietAdvice: '尋求專業減重門診或營養師，規劃安全且長久的飲食指引。',
+                    exerciseAdvice: '先從增加基礎日常活動（如座位伸展、原地踏步）開始，循序漸進。',
+                    lifestyleAdvice: '建議進行健康檢查，預防代謝症候群與相關慢性併發症。'
+                };
+            }
+        }
+
+        // 渲染結果 UI
+        function renderResults(bmi, minWeight, maxWeight, weightDiffText, resultData, rawBmi) {
+            document.getElementById('emptyStateHint').classList.add('hidden');
+            const resultContent = document.getElementById('resultContent');
+            resultContent.classList.remove('hidden');
+
+            document.getElementById('bmiValue').innerText = bmi;
+            document.getElementById('statusTitle').innerText = resultData.category;
+            document.getElementById('mascotEmoji').innerText = resultData.emoji;
+            document.getElementById('mascotMessage').innerText = resultData.speech;
+            document.getElementById('idealWeightText').innerText = `${minWeight} ~ ${maxWeight} kg`;
+            document.getElementById('targetWeightDiffText').innerHTML = weightDiffText;
+
+            document.getElementById('dietAdvice').innerText = resultData.dietAdvice;
+            document.getElementById('exerciseAdvice').innerText = resultData.exerciseAdvice;
+            document.getElementById('lifestyleAdvice').innerText = resultData.lifestyleAdvice;
+            document.getElementById('currentBmiRangeText').innerText = resultData.rangeText;
+
+            const tag = document.getElementById('statusTag');
+            tag.className = `px-3 py-0.5 rounded-full text-xs font-black text-white ${resultData.badgeBg}`;
+
+            // 國健署指標精確定位點計算 (量程 15 ~ 40，跨度 25)
+            let needlePercent = 0;
+            if (rawBmi <= 15) needlePercent = 2;
+            else if (rawBmi >= 40) needlePercent = 98;
+            else {
+                needlePercent = ((rawBmi - 15) / (40 - 15)) * 100;
+            }
+            document.getElementById('bmiNeedle').style.left = `${needlePercent}%`;
+        }
+
+        function highlightTableRow(rowId) {
+            const rows = ['row-underweight', 'row-normal', 'row-overweight', 'row-obese1', 'row-obese2', 'row-obese3'];
+            rows.forEach(id => {
+                const el = document.getElementById(id);
+                if (id === rowId) {
+                    el.classList.add('bg-chibi-cream', 'font-black');
+                } else {
+                    el.classList.remove('bg-chibi-cream', 'font-black');
+                }
+            });
+        }
+
+        function resetForm() {
+            document.getElementById('bmiForm').reset();
+            document.getElementById('emptyStateHint').classList.remove('hidden');
+            document.getElementById('resultContent').classList.add('hidden');
+            document.getElementById('ageWarning').classList.add('hidden');
+            document.getElementById('scaleLcdDisplay').innerText = '00.0';
+            document.getElementById('scalePointer').style.transform = 'rotate(-60deg)';
+            
+            const rows = ['row-underweight', 'row-normal', 'row-overweight', 'row-obese1', 'row-obese2', 'row-obese3'];
+            rows.forEach(id => {
+                document.getElementById(id).classList.remove('bg-chibi-cream', 'font-black');
+            });
+        }
+
+        function saveHistory(item) {
+            let history = JSON.parse(localStorage.getItem('chibi_bmi_history') || '[]');
+            history.unshift(item);
+            if (history.length > 5) history = history.slice(0, 5);
+            localStorage.setItem('chibi_bmi_history', JSON.stringify(history));
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const historyList = document.getElementById('historyList');
+            const history = JSON.parse(localStorage.getItem('chibi_bmi_history') || '[]');
+
+            if (history.length === 0) {
+                historyList.innerHTML = `<p class="text-xs text-center text-slate-400 py-8 font-bold">目前還沒有紀錄喔！測量後自動儲存 📝</p>`;
+                return;
+            }
+
+            historyList.innerHTML = history.map(item => `
+                <div class="p-3 bg-slate-50 rounded-2xl border-2 border-slate-200 flex items-center justify-between shadow-sm">
+                    <div class="space-y-0.5">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-black px-2 py-0.5 rounded-full text-white ${item.badgeBg}">${item.category}</span>
+                            <span class="text-xs font-bold text-slate-400">${item.date}</span>
+                        </div>
+                        <div class="text-xs font-bold text-slate-600">
+                            ${item.height} cm / ${item.weight} kg
+                        </div>
+                    </div>
+                    <div class="text-xl font-black font-rounded text-slate-700">
+                        ${item.bmi}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            localStorage.removeItem('chibi_bmi_history');
+            loadHistory();
+            showToast('已清空所有歷史調查紀錄囉！');
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-6 right-6 bg-slate-800 text-white font-bold px-5 py-3 rounded-2xl shadow-2xl text-xs z-50 flex items-center gap-2 animate-bounce';
+            toast.innerHTML = `<span>🕵️️‍♂️</span> ${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
